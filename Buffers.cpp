@@ -79,10 +79,10 @@ int AudioBuffer::PAcallback(const void* pInputBuffer,
 		BufferInput.push_back(pDataI[0][i]);
 	}
 
-    unique_lock<mutex> lk(callbackMutex);	//lock the mutex
+    //unique_lock<mutex> lk(callbackMutex);	//lock the mutex
 
 	freshData = true;	//the buffers are ready to be crunched
-	flag.notify_one();	//signal to the process thread to begin
+	//flag.notify_one();	//signal to the process thread to begin
 	return paContinue;
 }
 
@@ -92,34 +92,20 @@ void AudioBuffer::ProcessBuffers()
 	static int ellipsisCount = 0;	//dodgy print thing
     
 	//cout << "AudioBuffer::ProcessBuffers, wait" << endl;
-    unique_lock<mutex> lk(callbackMutex);	//lock the mutex
+    //unique_lock<mutex> lk(callbackMutex);	//lock the mutex
 
-    flag.wait(lk, [&](){return freshData;});		//unlock it and wait for the callback to notify_one().
+    //flag.wait(lk, [&](){return freshData;});		//unlock it and wait for the callback to notify_one().
     if(freshData){
 
 		//write the input buffer to a file
-		if(fout){
-			fout->write((char*) &(*BufferInput.begin()), BufferInput.size() * sizeof(float));
-		}
+		//if(fout){
+		//	fout->write((char*) &(*BufferInput.begin()), BufferInput.size() * sizeof(float));
+		//}
 		
-			//probably worth checking BufferInput.capacity() during the callback to verify
-			//if it gets reallocated, we can call BufferInput.reserve() here
-
 		//Simple loopback:
 		//just swap the buffers.
 
 		//BufferInput.swap(BufferOutput);
-
-	/*
-		auto it = BufferOutput.begin();
-		//	auto it = BufferInput.begin();
-		for (unsigned long i = 0; i < iFramesPerBuffer; i++)
-		{
-			if(it == BufferOutput.end()){
-
-		}
-		BufferOutput.clear();	//reallocation is not guaranteed to occur (we hope it doesn't)		
-	*/
 		
 		//growing ellipsis during recording
 		freshData = false;
