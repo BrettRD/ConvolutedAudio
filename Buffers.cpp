@@ -10,16 +10,15 @@
 
 using namespace std;
 
-AudioBuffer::AudioBuffer(int iSizeHint, fstream *_fout):
+AudioBuffer::AudioBuffer(unsigned long iSizeHint, fstream *_fout):
 	freshData{ false },
 	fout{ _fout },
 	underrunFlag{ false }
 {
 
-	if (iSizeHint > 0)
+	for(int i=0; i<iSizeHint; i++)
 	{
-		BufferInput.reserve(iSizeHint);
-		BufferOutput.reserve(iSizeHint);
+		BufferOutput.push_front(0);	//create a data delay from input to output
 	}
 }
 
@@ -29,7 +28,6 @@ AudioBuffer::~AudioBuffer()
 	//fout.close(); //fstreams have internal destructors that call close
 	BufferInput.clear();
 	BufferOutput.clear();
-		
 }
 
 
@@ -58,17 +56,15 @@ int AudioBuffer::PAcallback(const void* pInputBuffer,
 		return paContinue;
 	}
 
-	// Copy the write buffer to the output device
-	//std::vector<float>::iterator
-	auto it = BufferOutput.begin();
-//	auto it = BufferInput.begin();
+
 	for (unsigned long i = 0; i < iFramesPerBuffer; i++)
 	{
-		if(it == BufferOutput.end()){
+		if(BufferOutput.size() <= 1){	//thread safety is an issue at or below one
 			pDataO[0][i] = 0;
 			underrunFlag = true;
 		}else{
-			pDataO[0][i] = *(it++);
+			pDataO[0][i] = BufferOutput.front();
+			BufferOutput.pop_front();
 		}
 	}
 
@@ -81,7 +77,7 @@ int AudioBuffer::PAcallback(const void* pInputBuffer,
 
     //unique_lock<mutex> lk(callbackMutex);	//lock the mutex
 
-	freshData = true;	//the buffers are ready to be crunched
+	//freshData = true;	//the buffers are ready to be crunched
 	//flag.notify_one();	//signal to the process thread to begin
 	return paContinue;
 }
@@ -95,35 +91,42 @@ void AudioBuffer::ProcessBuffers()
     //unique_lock<mutex> lk(callbackMutex);	//lock the mutex
 
     //flag.wait(lk, [&](){return freshData;});		//unlock it and wait for the callback to notify_one().
-    if(freshData){
+    if(BufferInput.size() >= 64){	//number of elements in a callback buffer
 
+    	int writeCount = 0;
 		//write the input buffer to a file
-		//if(fout){
-		//	fout->write((char*) &(*BufferInput.begin()), BufferInput.size() * sizeof(float));
-		//}
-		
-		//Simple loopback:
-		//just swap the buffers.
+		if(fout){
+			while(BufferInput.size() > 1)
+			{
+				//hideously unoptimized
+				float tmp = BufferInput.front();
+				BufferInput.pop_front();
 
-		//BufferInput.swap(BufferOutput);
+				//do something to generate output from input
+				BufferOutput.push_back(tmp);
+
+				//write the input to file (hoping fstream consolidates a write buffer)
+				fout->write((char*) &tmp,  sizeof(float));
+				
+				writeCount++;
+			}
+		}
+		
 		
 		//growing ellipsis during recording
 		freshData = false;
 		if(++ellipsisCount >= 138){	//10Hz
-		    cout << "AudioBuffer::ProcessBuffers, input =" << count << endl;
+		    cout << "AudioBuffer::ProcessBuffers, wrote " << writeCount << endl;
 
 			if (underrunFlag)
 			{
-				cout << "AudioBuffer::ProcessBuffers, output buffer was not filled: " << BufferInput.size() << endl;
+				cout << "AudioBuffer::ProcessBuffers, output buffer was not filled: " << endl;
 				underrunFlag = false;
 			}
 			ellipsisCount = 0;
 			cout << ".";
 		}
 
-
-		BufferInput.clear();	//reallocation is not guaranteed to occur (we hope it doesn't)
-		BufferInput.reserve(256);
 	}
 }
 

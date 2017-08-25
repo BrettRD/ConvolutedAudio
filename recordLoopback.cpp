@@ -16,10 +16,10 @@
 
 // ---------------------------------------------------------------------
 // Some constants:
-const int		beep_seconds		= 1;
-const double	sample_rate			= 44100.0;
-const int		frames_per_buffer	= 64;
-
+const int		     beep_seconds      = 1;
+const double	     sample_rate       = 44100.0;
+const int		     frames_per_buffer = 64;
+const unsigned long  frames_per_ring   = sample_rate * beep_seconds;
 using namespace std;
 
 
@@ -31,7 +31,7 @@ using namespace std;
 void audioProcessThread(portaudio::System *sys, AudioBuffer *myBuffer, bool *spin){
 	while(*spin){
 		myBuffer->ProcessBuffers();
-		//sys->sleep(1);	//Replace with semaphore wait
+		sys->sleep(2);	//Replace with semaphore wait
 	}
 }
 
@@ -52,8 +52,8 @@ int main(int argc, char* argv[])
 		int 	iOutputDevice = -1;
 
 		//prep the output file and reserve the buffers
-		fstream fout( "recording.raw", ios::out|ios::binary);
-		AudioBuffer myBuffer(frames_per_buffer, &fout);
+		fstream fout( "input.raw", ios::out|ios::binary);
+		AudioBuffer myBuffer(frames_per_ring, &fout);
 		//AudioBuffer myBuffer(frames_per_buffer, NULL);
 		cout << "Setting up PortAudio..." << endl;
 

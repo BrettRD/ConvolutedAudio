@@ -2,7 +2,8 @@
 #define _BUFFERS_H_
 
 
-#include <vector>
+//#include <vector>
+#include <deque>
 #include <iostream>
 #include <fstream>
 #include <string.h>
@@ -20,7 +21,7 @@ using namespace std;
 class AudioBuffer
 {
 	public:
-		AudioBuffer(int iSizeHint, fstream *_fout);
+		AudioBuffer(unsigned long iSizeHint, fstream *_fout);
 		~AudioBuffer();
 
 		int PAcallback(const void* pInputBuffer, 
@@ -33,15 +34,15 @@ class AudioBuffer
 
 	private:
 		
-		vector<float> BufferInput;	//a buffer copying from the input stream.
-		vector<float> BufferOutput; //a buffer writing to the output stream and disk
+		deque<float> BufferInput;	//a buffer copying from the input stream.
+		deque<float> BufferOutput; //a buffer writing to the output stream and disk
 
 		unsigned long count = 0;
 
 		bool underrunFlag;
 		
-		condition_variable flag;
-		mutex callbackMutex;
+		//condition_variable flag;
+		//mutex callbackMutex;
 		bool freshData;// flag to the process function that new data is ready
 			//replace this with a semaphore or whatever the posix thing is.
 
