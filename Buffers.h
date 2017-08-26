@@ -37,8 +37,8 @@ class AudioBuffer
 
     private:
         
-        RingBuffer BufferInput;    //a buffer copying from the input stream.
-        RingBuffer BufferOutput; //a buffer writing to the output stream and disk
+        RingBuffer<float> BufferInput;    //a buffer copying from the input stream.
+        RingBuffer<float> BufferOutput; //a buffer writing to the output stream and disk
 
 
 

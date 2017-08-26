@@ -19,7 +19,7 @@
 const int           beep_seconds      = 1;
 const double        sample_rate       = 44100.0;
 const int           frames_per_buffer = 64;
-const unsigned long frames_per_ring   = sample_rate * beep_seconds;
+const unsigned long frames_per_ring   = frames_per_buffer * 8;
 using namespace std;
 
 

@@ -1,11 +1,17 @@
 
 #include "RingBuffer.h"
 
+using namespace std;
+//list off the types that the ringbuffer is can be built for
+template class RingBuffer<float>;
 
-RingBuffer::RingBuffer(size_t length):
+
+
+template <typename T>
+RingBuffer<T>::RingBuffer(size_t length):
 isEmpty(true)
 {
-    ring = (float*) new float[length * sizeof(float)];
+    ring = (T*) new T[length * sizeof(T)];
 
     ringEnd = &(ring[length]);
 
@@ -13,13 +19,15 @@ isEmpty(true)
     readHead = ring;
 }
 
-RingBuffer::~RingBuffer()
+template <typename T>
+RingBuffer<T>::~RingBuffer()
 {
     delete[] ring;
 }
 
 //push one element to the ring
-bool RingBuffer::push(float element)
+template <typename T>
+bool RingBuffer<T>::push(T element)
 {
     if(vacant() > 0){    
         *writeHead = element;
@@ -34,31 +42,27 @@ bool RingBuffer::push(float element)
 //pointer to read values from
 //number of elements to read
 //returns number of elements actually pushed
-size_t RingBuffer::push(float *element, size_t count)
+template <typename T>
+size_t RingBuffer<T>::push(T *element, size_t count)
 {
-    size_t writes = contigWrite(); //how many elements can we write at once?
-    if(writes > count){
-        writes = count;
-    }
+    size_t writes = min(contigWrite(), count); //how many elements can we write at once?
 
     while(writes > 0)
     {
-        memcpy(writeHead, element, writes * sizeof(float));
+        memcpy(writeHead, element, writes * sizeof(T));
         advanceWrite(writes);   //advance the write pointer
         element += writes;      //advance the read pointer
         count -= writes;        //subtract the written count
 
-        writes = contigWrite(); //how many elements can we write at once?
-        if(writes > count){
-            writes = count;
-        }
+        writes = min(contigWrite(), count); //how many elements can we write at once?
     }
 
     return size();
 }
 
 
-bool RingBuffer::pop(float *element){
+template <typename T>
+bool RingBuffer<T>::pop(T *element){
     if(size()>0){
         *element = *readHead;
         advanceRead(1);
@@ -68,35 +72,35 @@ bool RingBuffer::pop(float *element){
 }
 
 
+
+
 //arguments:
 //pointer to write values to
 //number of elements to write        
 //returns number of elements actually popped
-size_t RingBuffer::pop(float* element, size_t count){
-    size_t reads = contigRead(); //how many elements can we write at once?
-    if(reads > count){
-        reads = count;
-    }
+template <typename T>
+size_t RingBuffer<T>::pop(T* element, size_t count){
+    size_t reads = min(contigRead(), count); //how many elements can we write at once?
 
     while(reads > 0)
     {
-        memcpy(element, readHead, reads * sizeof(float));
+        memcpy(element, readHead, reads * sizeof(T));
         advanceRead(reads);     //advance the write pointer
         element += reads;       //advance the read pointer
         count -= reads;         //subtract the written count
 
-        reads = contigRead();   //how many elements can we write at once?
-        if(reads > count){
-            reads = count;
-        }
+        reads = min(contigRead(), count);   //how many elements can we write at once?
     }
 
     return size();
 }
 
 
+
+
 //returns the number of elements in use by the buffer
-size_t RingBuffer::size(){
+template <typename T>
+size_t RingBuffer<T>::size(){
     //return the size of the populated section
     if(isEmpty){
         return 0;
@@ -107,13 +111,17 @@ size_t RingBuffer::size(){
     }
 }
 
-size_t RingBuffer::vacant(){
+
+
+template <typename T>
+size_t RingBuffer<T>::vacant(){
     //return the size of the vacant section
     return (ringEnd - ring) - size();
 }
 
 //return the contiguously accessible size from the read pointer
-size_t RingBuffer::contigRead(){
+template <typename T>
+size_t RingBuffer<T>::contigRead(){
     if(isEmpty){
         return 0;    //empty
     }else if(writeHead <= readHead){    //can read up to the write head
@@ -123,8 +131,11 @@ size_t RingBuffer::contigRead(){
     }
 }
 
+
+
 //return the contiguously accessible size from the write pointer
-size_t RingBuffer::contigWrite(){
+template <typename T>
+size_t RingBuffer<T>::contigWrite(){
     if((!isEmpty) && (readHead == writeHead)){
         return 0;   //full
     }else if(readHead <= writeHead){    //can write up to the read head
@@ -134,7 +145,10 @@ size_t RingBuffer::contigWrite(){
     }
 }
 
-void RingBuffer::advanceWrite(size_t count){
+
+
+template <typename T>
+void RingBuffer<T>::advanceWrite(size_t count){
     if(vacant() >= count){
         writeHead += count;
         if(writeHead >= ringEnd) writeHead = ring + (writeHead - ringEnd);
@@ -143,7 +157,10 @@ void RingBuffer::advanceWrite(size_t count){
     }
 }
 
-void RingBuffer::advanceRead(size_t count){
+
+
+template <typename T>
+void RingBuffer<T>::advanceRead(size_t count){
     if(size() >= count){
         readHead += count;
         if(readHead >= ringEnd) readHead = ring + (readHead - ringEnd);

@@ -108,7 +108,7 @@ void AudioBuffer::ProcessBuffers()
         //growing ellipsis during recording
         freshData = false;
         if(++ellipsisCount >= 138){    //10Hz
-            cout << "AudioBuffer::ProcessBuffers, size" << writeCount << endl;
+            cout << "AudioBuffer::ProcessBuffers, write size:  " << writeCount << endl;
 
             if (underrunFlag)
             {
