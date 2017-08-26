@@ -16,10 +16,10 @@
 
 // ---------------------------------------------------------------------
 // Some constants:
-const int		     beep_seconds      = 1;
-const double	     sample_rate       = 44100.0;
-const int		     frames_per_buffer = 64;
-const unsigned long  frames_per_ring   = sample_rate * beep_seconds;
+const int           beep_seconds      = 1;
+const double        sample_rate       = 44100.0;
+const int           frames_per_buffer = 64;
+const unsigned long frames_per_ring   = sample_rate * beep_seconds;
 using namespace std;
 
 
@@ -29,10 +29,10 @@ using namespace std;
 
 
 void audioProcessThread(portaudio::System *sys, AudioBuffer *myBuffer, bool *spin){
-	while(*spin){
-		myBuffer->ProcessBuffers();
-		sys->sleep(2);	//Replace with semaphore wait
-	}
+    while(*spin){
+    myBuffer->ProcessBuffers();
+    sys->sleep(2);    //Replace with semaphore wait
+    }
 }
 
 
@@ -45,143 +45,144 @@ void audioProcessThread(portaudio::System *sys, AudioBuffer *myBuffer, bool *spi
 int main(int argc, char* argv[]);
 int main(int argc, char* argv[])
 {
-	try
-	{
-		char 	chWait;
-		int 	iInputDevice = -1;
-		int 	iOutputDevice = -1;
 
-		//prep the output file and reserve the buffers
-		fstream fout( "input.raw", ios::out|ios::binary);
-		AudioBuffer myBuffer(frames_per_ring, &fout);
-		//AudioBuffer myBuffer(frames_per_buffer, NULL);
-		cout << "Setting up PortAudio..." << endl;
+    try
+    {
+    char     chWait;
+    int     iInputDevice = -1;
+    int     iOutputDevice = -1;
 
-		// Set up the System:
-		portaudio::AutoSystem autoSys;
-		portaudio::System &sys = portaudio::System::instance();
+    //prep the output file and reserve the buffers
+    fstream fout( "input.raw", ios::out|ios::binary);
+    AudioBuffer myBuffer(frames_per_ring, &fout);
+    //AudioBuffer myBuffer(frames_per_buffer, NULL);
+    cout << "Setting up PortAudio..." << endl;
 
-		if (argc > 2)
-		{	
-			iInputDevice 	= atoi(argv[1]); 
-			iOutputDevice 	= atoi(argv[2]); 
+    // Set up the System:
+    portaudio::AutoSystem autoSys;
+    portaudio::System &sys = portaudio::System::instance();
 
-			cout << "Using input device index = " << iInputDevice << endl;
-			cout << "Using output device index = " << iOutputDevice << endl;
-		}
-		else
-		{
-			cout << "Using system default input/output devices..." << endl;		  
-			iInputDevice	= sys.defaultInputDevice().index();
-			iOutputDevice	= sys.defaultOutputDevice().index();
-		}
+    if (argc > 2)
+    {    
+    iInputDevice     = atoi(argv[1]); 
+    iOutputDevice     = atoi(argv[2]); 
 
-
-
-
-		// List out all the devices we have
-		int 	iNumDevices 		= sys.deviceCount();
-		int 	iIndex 				= 0;			
-		string	strDetails			= "";
-
-		std::cout << "Number of devices = " << iNumDevices << std::endl;		
-		if ((iInputDevice >= 0) && (iInputDevice >= iNumDevices))
-		{
-			cout << "Input device index out of range!" << endl;
-			return 0;
-		}
-		if ((iOutputDevice >= 0) && (iOutputDevice >= iNumDevices))
-		{
-			cout << "Ouput device index out of range!" << endl;
-			return 0;
-		}
-		for (portaudio::System::DeviceIterator i = sys.devicesBegin(); i != sys.devicesEnd(); ++i)
-		{
-			strDetails = "";
-			if ((*i).isSystemDefaultInputDevice())
-				strDetails += ", default input";
-			if ((*i).isSystemDefaultOutputDevice())
-				strDetails += ", default output";
-
-			cout << (*i).index() << ": " << (*i).name() << ", ";
-			cout << "in=" << (*i).maxInputChannels() << " ";
-			cout << "out=" << (*i).maxOutputChannels() << ", ";
-			cout << (*i).hostApi().name();
-
-			cout << strDetails.c_str() << endl;
-
-			iIndex++;
-		}
+    cout << "Using input device index = " << iInputDevice << endl;
+    cout << "Using output device index = " << iOutputDevice << endl;
+    }
+    else
+    {
+    cout << "Using system default input/output devices..." << endl;      
+    iInputDevice    = sys.defaultInputDevice().index();
+    iOutputDevice    = sys.defaultOutputDevice().index();
+    }
 
 
 
 
-		//prep the I/O devices
-		//This needs a total rewrite:
+    // List out all the devices we have
+    int     iNumDevices     = sys.deviceCount();
+    int     iIndex     = 0;    
+    string    strDetails    = "";
 
-		cout << "Opening stream on " << sys.deviceByIndex(iInputDevice).name() << endl;
-		cout << "Opening playback output stream on " << sys.deviceByIndex(iOutputDevice).name() << endl;
-		portaudio::DirectionSpecificStreamParameters instreamParams(
-						sys.deviceByIndex(iInputDevice),
-						1,
-						portaudio::FLOAT32,
-						false,
-						sys.deviceByIndex(iInputDevice).defaultLowInputLatency(),
-						NULL);
-		portaudio::DirectionSpecificStreamParameters outStreamParams(
-						sys.deviceByIndex(iOutputDevice),
-						1,
-						portaudio::FLOAT32,
-						false,
-						sys.deviceByIndex(iOutputDevice).defaultLowOutputLatency(),
-						NULL);
-		portaudio::StreamParameters streamParams(
-						instreamParams,
-						outStreamParams,
-						sample_rate,
-						frames_per_buffer,
-						paClipOff);		
-		portaudio::MemFunCallbackStream<AudioBuffer> myStream(
-						streamParams,
-						myBuffer,
-						&AudioBuffer::PAcallback);
+    std::cout << "Number of devices = " << iNumDevices << std::endl;    
+    if ((iInputDevice >= 0) && (iInputDevice >= iNumDevices))
+    {
+    cout << "Input device index out of range!" << endl;
+    return 0;
+    }
+    if ((iOutputDevice >= 0) && (iOutputDevice >= iNumDevices))
+    {
+    cout << "Ouput device index out of range!" << endl;
+    return 0;
+    }
+    for (portaudio::System::DeviceIterator i = sys.devicesBegin(); i != sys.devicesEnd(); ++i)
+    {
+    strDetails = "";
+    if ((*i).isSystemDefaultInputDevice())
+    strDetails += ", default input";
+    if ((*i).isSystemDefaultOutputDevice())
+    strDetails += ", default output";
 
+    cout << (*i).index() << ": " << (*i).name() << ", ";
+    cout << "in=" << (*i).maxInputChannels() << " ";
+    cout << "out=" << (*i).maxOutputChannels() << ", ";
+    cout << (*i).hostApi().name();
 
+    cout << strDetails.c_str() << endl;
 
-
-		cout << "Press enter to STOP recording.";
-		 //create a thread to run the audio processing
-		bool spin = true;
-		std::thread processThread(audioProcessThread, &sys, &myBuffer, &spin);
-		myStream.start();
-		cin.get(chWait);
-		spin = false;	//quit the thread loop
-		processThread.join();
-		myStream.stop();
-
-		myStream.close();
-		sys.terminate();
+    iIndex++;
+    }
 
 
-	}
-	catch (const portaudio::PaException &e)
-	{
-		cout << "A PortAudio error occured: " << e.paErrorText() << endl;
-	}
-	catch (const portaudio::PaCppException &e)
-	{
-		cout << "A PortAudioCpp error occured: " << e.what() << endl;
-	}
-	catch (const exception &e)
-	{
-		cout << "A generic exception occured: " << e.what() << endl;
-	}
-	catch (...)
-	{
-		cout << "An unknown exception occured." << endl;
-	}
 
-	return 0;
+
+    //prep the I/O devices
+    //This needs a total rewrite:
+
+    cout << "Opening stream on " << sys.deviceByIndex(iInputDevice).name() << endl;
+    cout << "Opening playback output stream on " << sys.deviceByIndex(iOutputDevice).name() << endl;
+    portaudio::DirectionSpecificStreamParameters instreamParams(
+    sys.deviceByIndex(iInputDevice),
+    1,
+    portaudio::FLOAT32,
+    false,
+    sys.deviceByIndex(iInputDevice).defaultLowInputLatency(),
+    NULL);
+    portaudio::DirectionSpecificStreamParameters outStreamParams(
+    sys.deviceByIndex(iOutputDevice),
+    1,
+    portaudio::FLOAT32,
+    false,
+    sys.deviceByIndex(iOutputDevice).defaultLowOutputLatency(),
+    NULL);
+    portaudio::StreamParameters streamParams(
+    instreamParams,
+    outStreamParams,
+    sample_rate,
+    frames_per_buffer,
+    paClipOff);    
+    portaudio::MemFunCallbackStream<AudioBuffer> myStream(
+    streamParams,
+    myBuffer,
+    &AudioBuffer::PAcallback);
+
+
+
+
+    cout << "Press enter to STOP recording.";
+     //create a thread to run the audio processing
+    bool spin = true;
+    std::thread processThread(audioProcessThread, &sys, &myBuffer, &spin);
+    myStream.start();
+    cin.get(chWait);
+    spin = false;    //quit the thread loop
+    processThread.join();
+    myStream.stop();
+
+    myStream.close();
+    sys.terminate();
+
+
+    }
+    catch (const portaudio::PaException &e)
+    {
+    cout << "A PortAudio error occured: " << e.paErrorText() << endl;
+    }
+    catch (const portaudio::PaCppException &e)
+    {
+    cout << "A PortAudioCpp error occured: " << e.what() << endl;
+    }
+    catch (const exception &e)
+    {
+    cout << "A generic exception occured: " << e.what() << endl;
+    }
+    catch (...)
+    {
+    cout << "An unknown exception occured." << endl;
+    }
+
+    return 0;
 }
 
 
