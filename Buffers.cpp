@@ -9,6 +9,8 @@
 
 using namespace std;
 
+vector<float> dspBuffer;    //a buffer to send to the DSP algorithms
+
 AudioBuffer::AudioBuffer(unsigned long iSizeHint, fstream *_fout):
     BufferInput(iSizeHint),
     BufferOutput(iSizeHint),
@@ -61,16 +63,11 @@ int AudioBuffer::PAcallback(const void* pInputBuffer,
         pDataO[0][i] = tmp;    
     }
 
-//    BufferInput.clear();
     // Copy the samples to the input buffer
     for (unsigned long i = 0; i < iFramesPerBuffer; i++){
         BufferInput.push(pDataI[0][i]);
     }
 
-    //unique_lock<mutex> lk(callbackMutex);    //lock the mutex
-
-    //freshData = true;    //the buffers are ready to be crunched
-    //flag.notify_one();    //signal to the process thread to begin
     return paContinue;
 }
 
@@ -98,8 +95,18 @@ void AudioBuffer::ProcessBuffers()
                 BufferOutput.push(tmp);
 
                 //write the input to file (hoping fstream consolidates a write buffer)
-                fout->write((char*) &tmp,  sizeof(float));
-                
+                fout->write((char*) &tmp,  sizeof(float));  //not at all portable
+
+                //write to a vector for the dsp algorithms
+                dspBuffer.push_back(tmp);
+                if(dspBuffer.size() >= 44100) //dirty magic number
+                {
+                    //crunch some numbers
+                    SpoolBuffers(&dspBuffer);
+                    dspBuffer.clear();
+                }
+
+
                 writeCount++;
             }
         }
@@ -107,8 +114,8 @@ void AudioBuffer::ProcessBuffers()
         
         //growing ellipsis during recording
         freshData = false;
-        if(++ellipsisCount >= 138){    //10Hz
-            cout << "AudioBuffer::ProcessBuffers, write size:  " << writeCount << endl;
+        if(++ellipsisCount >= 69){    //10Hz
+            //cout << "AudioBuffer::ProcessBuffers, write size:  " << writeCount << endl;
 
             if (underrunFlag)
             {
@@ -117,6 +124,7 @@ void AudioBuffer::ProcessBuffers()
             }
             ellipsisCount = 0;
             cout << ".";
+            fflush(stdout);
         }
 
     }

@@ -15,14 +15,7 @@
 #include "Buffers.h"
 
 // ---------------------------------------------------------------------
-// Some constants:
-const int           beep_seconds      = 1;
-const double        sample_rate       = 44100.0;
-const int           frames_per_buffer = 64;
-const unsigned long frames_per_ring   = frames_per_buffer * 8;
 using namespace std;
-
-
 
 
 // ---------------------------------------------------------------------
@@ -37,10 +30,6 @@ void audioProcessThread(portaudio::System *sys, AudioBuffer *myBuffer, bool *spi
 
 
 
-
-
-
-
 // main:
 int main(int argc, char* argv[]);
 int main(int argc, char* argv[])
@@ -52,8 +41,22 @@ int main(int argc, char* argv[])
     int     iInputDevice = -1;
     int     iOutputDevice = -1;
 
+  //open the file with the reference data
+    //open with the pointer at the end to measure the length
+  fstream fReference( "sample.raw", ios::in|ios::binary); 
+  if (fReference)
+  {
+    PrepKernel(&fReference);     //send it to the correlation engine
+    fReference.close();          //we're done with the file
+  }
+
+
+
     //prep the output file and reserve the buffers
     fstream fout( "input.raw", ios::out|ios::binary);
+
+
+
     AudioBuffer myBuffer(frames_per_ring, &fout);
     //AudioBuffer myBuffer(frames_per_buffer, NULL);
     cout << "Setting up PortAudio..." << endl;
