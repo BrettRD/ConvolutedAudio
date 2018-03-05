@@ -24,4 +24,4 @@ convolver.o: convolver.cpp convolver.h Buffers.h
 
 
 clean:
-	rm *o
+	rm *.o

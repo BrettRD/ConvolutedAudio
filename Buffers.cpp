@@ -44,6 +44,8 @@ int AudioBuffer::PAcallback(const void* pInputBuffer,
     
     float **pDataO = (float**) pOutputBuffer;
     float **pDataI = (float**) pInputBuffer;
+
+    size_t remains;
     
     count = iFramesPerBuffer;
     if (pOutputBuffer == NULL){
@@ -56,17 +58,15 @@ int AudioBuffer::PAcallback(const void* pInputBuffer,
         return paContinue;
     }
 
-    float tmp=0;
-    for (unsigned long i = 0; i < iFramesPerBuffer; i++){
-        tmp = 0;
-        if( !BufferOutput.pop(&tmp) )    underrunFlag = true;
-        pDataO[0][i] = tmp;    
-    }
+    remains = BufferOutput.pop(pDataO[0], iFramesPerBuffer);
+    //cout << "remains = " << remains << endl;
+    if(0 != remains ) underrunFlag = true;
+
 
     // Copy the samples to the input buffer
-    for (unsigned long i = 0; i < iFramesPerBuffer; i++){
-        BufferInput.push(pDataI[0][i]);
-    }
+    remains = BufferInput.push(pDataI[0], iFramesPerBuffer);
+    //cout << "remains = " << remains << endl;
+    if(0 != remains ) overrunFlag = true;
 
     return paContinue;
 }
@@ -79,54 +79,48 @@ void AudioBuffer::ProcessBuffers()
     //cout << "AudioBuffer::ProcessBuffers, wait" << endl;
     //unique_lock<mutex> lk(callbackMutex);    //lock the mutex
 
-    //flag.wait(lk, [&](){return freshData;});        //unlock it and wait for the callback to notify_one().
-    if(BufferInput.size() >= 64){    //number of elements in a callback buffer
+    if(BufferInput.size() >= fftSize){    //number of elements in a callback buffer
 
-        int writeCount = 0;
-        //write the input buffer to a file
-        if(fout){
-            while(BufferInput.size() > 1)
+        //fetch the pointer to the ring buffer read head
+        float *readHead = NULL;
+        size_t readSize = BufferInput.contigRead(&readHead);
+
+        if(readSize >= fftSize){
+            
+            fout->write((char*) readHead,  sizeof(float) * fftSize);
+
+            SpoolBuffers(readHead, fftSize);
+
+            //copy input to output
+            if(0 != BufferOutput.push(readHead,fftSize))
             {
-                //hideously unoptimized
-                float tmp = 0;
-                BufferInput.pop(&tmp);
-
-                //do something to generate output from input
-                BufferOutput.push(tmp);
-
-                //write the input to file (hoping fstream consolidates a write buffer)
-                fout->write((char*) &tmp,  sizeof(float));  //not at all portable
-
-                //write to a vector for the dsp algorithms
-                dspBuffer.push_back(tmp);
-                if(dspBuffer.size() >= 44100) //dirty magic number
-                {
-                    //crunch some numbers
-                    SpoolBuffers(&dspBuffer);
-                    dspBuffer.clear();
-                }
-
-
-                writeCount++;
+                cout << "output ring is full" << endl;
             }
+
+
+            BufferInput.pop(NULL,fftSize);
+
         }
-        
-        
-        //growing ellipsis during recording
-        freshData = false;
-        if(++ellipsisCount >= 69){    //10Hz
-            //cout << "AudioBuffer::ProcessBuffers, write size:  " << writeCount << endl;
+        else
+        {
+            cout << "Misaligned!" << endl;
 
-            if (underrunFlag)
-            {
-                cout << "AudioBuffer::ProcessBuffers, output buffer was not filled: " << endl;
-                underrunFlag = false;
-            }
-            ellipsisCount = 0;
-            cout << ".";
-            fflush(stdout);
         }
 
+        
+    }
+    //growing ellipsis during recording
+    if(++ellipsisCount >= 69){    //10Hz
+        //cout << "AudioBuffer::ProcessBuffers, write size:  " << writeCount << endl;
+
+        if (underrunFlag)
+        {
+            cout << "AudioBuffer::ProcessBuffers, output buffer was not filled: " << endl;
+            underrunFlag = false;
+        }
+        ellipsisCount = 0;
+        cout << ".";
+        fflush(stdout);
     }
 }
 

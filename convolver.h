@@ -7,7 +7,7 @@
 
 //void PrepKernel(vector<float> *refSig);
 void PrepKernel(fstream *freference);
-void SpoolBuffers(vector<float> *inputSig);
+void SpoolBuffers(float *inputSig, size_t len);
 
 
 

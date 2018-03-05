@@ -31,8 +31,8 @@ class RingBuffer
         size_t size();
         size_t vacant();
         
-        size_t contigRead();
-        size_t contigWrite();
+        size_t contigRead(T**);
+        size_t contigWrite(T**);
 
 
     private:

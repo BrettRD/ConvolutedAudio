@@ -24,11 +24,9 @@ using namespace std;
 // Some constants:
 const int           beep_seconds      = 1;
 const double        sample_rate       = 44100.0;
-const int           frames_per_buffer = 64;
-const unsigned long frames_per_ring   = sample_rate;
-
-extern vector<float> dspBuffer;    //a buffer to send to the DSP algorithms
-
+const int           frames_per_buffer = 64;                     //number of samples in a port-audio buffer
+const int           fftSize           = 256*frames_per_buffer;  //number of samples to FFT over
+const unsigned long frames_per_ring   = 2*fftSize;              //amount of buffer required
 
 
 
@@ -54,8 +52,8 @@ class AudioBuffer
 
         unsigned long count = 0;
 
-        bool underrunFlag;
-        
+        volatile bool underrunFlag;
+        volatile bool overrunFlag;
         //condition_variable flag;
         //mutex callbackMutex;
         bool freshData;// flag to the process function that new data is ready

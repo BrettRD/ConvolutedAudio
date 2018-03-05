@@ -41,14 +41,15 @@ int main(int argc, char* argv[])
     int     iInputDevice = -1;
     int     iOutputDevice = -1;
 
-  //open the file with the reference data
+    //open the file with the reference data
     //open with the pointer at the end to measure the length
-  fstream fReference( "sample.raw", ios::in|ios::binary); 
-  if (fReference)
-  {
-    PrepKernel(&fReference);     //send it to the correlation engine
-    fReference.close();          //we're done with the file
-  }
+    fstream fReference( "sample.raw", ios::in|ios::binary); 
+    if (fReference)
+    {
+        PrepKernel(&fReference);     //send it to the correlation engine
+        fReference.close();          //we're done with the file
+    }
+
 
 
 

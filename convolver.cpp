@@ -18,7 +18,6 @@ using namespace std;
 using namespace cv;
 
 
-int dftSize = 44100;	//1s samples
 int nRefChannels = 1;	//one reference signal for now
 int nDatchannels = 1;	//one channel audio for now
 
@@ -39,18 +38,27 @@ void PrepKernel(fstream *fReference){
     size_t refsize = fReference->tellg();  //the pointer to the current byte == the length
     cout << "The sample file is " << refsize << " bytes long" << endl;    
 
+	
+
     //create the matrix of appropriate size
     int cols = 1;
-    int rows = refsize / sizeof(float);
+    int rows = refsize / sizeof(int16_t);
+    if(rows > fftSize)
+    {
+	    rows = fftSize;
+    }
+	cout << "using " << rows << " samples" << endl;    
+
     kernel = Mat(rows, cols, CV_32F, double(0));	//allocate, and initialize
 
     fReference->seekg (0, ios::beg);       //return to the beginning of the file
 
-    float sample = 0;	//import sample-by-sample
-    int nSamples = refsize/sizeof(float);	//bytes were written raw and non-portable
+    int16_t sample = 0;	//import sample-by-sample
+    int nSamples = rows/sizeof(int16_t);	//bytes were written raw and non-portable
 	for(int i=0; i<nSamples; i++){
-    	fReference->read ( (char*) &sample, sizeof(float));   //read the whole file
-    	kernel.at<Vec<float, 1>>(i,0) = sample;
+    	fReference->read ( (char*) &sample, sizeof(int16_t));   //read the whole file
+    	float sampleFloat = sample;
+    	kernel.at<Vec<float, 1>>(i,0) = sampleFloat;
 	}
 
 
@@ -67,12 +75,14 @@ void PrepKernel(fstream *fReference){
 
 
 //compare the vector to the kernel and report some stats
-void SpoolBuffers(vector<float> *inputSig){
+void SpoolBuffers(float *inputSig, size_t len){
 
- 	cout << "copy vector type to matrix" << endl;
+ 	cout << "create matrix over input buffer" << endl;
     fflush(stdout);
 
-	sigData = Mat(*inputSig);	//create a matrix from the vector
+	sigData = Mat(len, 1, CV_32F, inputSig);	//create a matrix over the array
+	//sigData = sigData.t();
+	cout << "incoming sig size = " << sigData.size() << endl;
 
 	//run filter2 on the matrix
 	int ddepth = -1;	//default to source bit depth
@@ -89,8 +99,8 @@ void SpoolBuffers(vector<float> *inputSig){
     //	this also allows easy exansion of channel or reference count
 	filter2D(sigData, outData, ddepth , kernel, anchor, delta, borderType );
 
- 	//cout << "matrix size = " << outData.size() << endl;
-	//cout << outData.at<Vec<float, 1>>(0,0) << endl;
+ 	cout << "matrix size = " << outData.size() << endl;
+
 
  	
 	//find the maximum, minimum, and variance for each input channel.
