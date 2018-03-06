@@ -49,12 +49,12 @@ void PrepKernel(fstream *fReference){
     }
 	cout << "using " << rows << " samples" << endl;    
 
-    kernel = Mat(rows, cols, CV_32F, double(0));	//allocate, and initialize
+    kernel = Mat(rows, cols, CV_32F, float(0));	//allocate, and initialize
 
     fReference->seekg (0, ios::beg);       //return to the beginning of the file
 
     int16_t sample = 0;	//import sample-by-sample
-    int nSamples = rows/sizeof(int16_t);	//bytes were written raw and non-portable
+    int nSamples = rows;	//bytes were written raw and non-portable
 	for(int i=0; i<nSamples; i++){
     	fReference->read ( (char*) &sample, sizeof(int16_t));   //read the whole file
     	float sampleFloat = sample;
@@ -121,7 +121,5 @@ void SpoolBuffers(float *inputSig, size_t len){
     fflush(stdout);
 	meanStdDev(outData, noiseMean, noiseStddev);
 	cout << "noise floor = " << noiseStddev[0] << endl;
-
-	
 
 }

@@ -9,8 +9,6 @@
 
 using namespace std;
 
-vector<float> dspBuffer;    //a buffer to send to the DSP algorithms
-
 AudioBuffer::AudioBuffer(unsigned long iSizeHint, fstream *_fout):
     BufferInput(iSizeHint),
     BufferOutput(iSizeHint),
@@ -92,11 +90,11 @@ void AudioBuffer::ProcessBuffers()
             SpoolBuffers(readHead, fftSize);
 
             //copy input to output
-            if(0 != BufferOutput.push(readHead,fftSize))
+            float *outputref = kernel.ptr<float>(0);
+            if(0 != BufferOutput.push(outputref,fftSize))
             {
                 cout << "output ring is full" << endl;
             }
-
 
             BufferInput.pop(NULL,fftSize);
 
@@ -117,6 +115,11 @@ void AudioBuffer::ProcessBuffers()
         {
             cout << "AudioBuffer::ProcessBuffers, output buffer was not filled: " << endl;
             underrunFlag = false;
+        }
+        if (overrunFlag)
+        {
+            cout << "AudioBuffer::ProcessBuffers, input buffer was not emptied: " << endl;
+            overrunFlag = false;
         }
         ellipsisCount = 0;
         cout << ".";

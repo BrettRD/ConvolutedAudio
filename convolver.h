@@ -4,6 +4,7 @@
 #include <opencv2/opencv.hpp>
 #include "Buffers.h"
 
+extern cv::Mat kernel;
 
 //void PrepKernel(vector<float> *refSig);
 void PrepKernel(fstream *freference);
