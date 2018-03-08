@@ -29,7 +29,7 @@ int nDatchannels = 1;	//one channel audio for now
 Mat kernel;		//the reference signal(s)
 Mat sigData;	//the input data
 Mat outData;	//the output delta functions
-
+Mat image;
 //void PrepKernel(vector<float> *refSig){
 void PrepKernel(fstream *fReference){
 	//read the reference signal data into the kernel
@@ -99,10 +99,8 @@ void SpoolBuffers(float *inputSig, size_t len){
     //	this also allows easy exansion of channel or reference count
 	filter2D(sigData, outData, ddepth , kernel, anchor, delta, borderType );
 
- 	cout << "matrix size = " << outData.size() << endl;
+	cout << "matrix size = " << outData.size() << endl;
 
-
- 	
 	//find the maximum, minimum, and variance for each input channel.
 
 	double pulseMax;	//size of the peak
@@ -115,11 +113,46 @@ void SpoolBuffers(float *inputSig, size_t len){
 	cout << "peak detection" << endl;
     fflush(stdout);
 	minMaxLoc(outData, &pulseMin, &pulseMax, &pulseMinT, &pulseMaxT, Mat());
-	cout << "pulse = "<< pulseMax << " at sample " << pulseMaxT << endl;
+	cout << "pulse = "<< pulseMax << " at sample " << pulseMaxT.y << endl;
 
 	cout << "Noise measurement" << endl;
     fflush(stdout);
 	meanStdDev(outData, noiseMean, noiseStddev);
 	cout << "noise floor = " << noiseStddev[0] << endl;
+
+
+	int height = 512;
+	int width = 1024;
+
+	image = Mat(height, width, CV_8U);
+
+	int offset = pulseMaxT.y-(width/2);
+	if(offset+width > outData.size().height)
+	{
+		offset = outData.size().height - width;
+	}
+	else if (offset < 0)
+	{
+		offset = 0;
+	}
+
+
+	for(int i=0; i<width; i++)
+	{
+		int j;
+		for(j=0; j<height; j++)
+		{
+			image.at<uint8_t>(j,i) = 0;
+		}
+
+		j = (height/2) + ((height/2) * (outData.at<float>(i+offset,0) / (pulseMax-pulseMin)));
+		//cout << "marker " << i << ", " << j << endl;
+
+		image.at<uint8_t>(j,i) = 255;
+	}
+
+    namedWindow( "Display window", WINDOW_AUTOSIZE );// Create a window for display.
+    imshow( "Display window", image );                   // Show our image inside it.
+	waitKey(1);
 
 }
