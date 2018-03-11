@@ -22,12 +22,14 @@
 using namespace std;
 
 // Some constants:
-const int           beep_seconds      = 1;
-const double        sample_rate       = 44100.0;
-const int           frames_per_buffer = 64;                     //number of samples in a port-audio buffer
-const int           fftSize           = 2*256*frames_per_buffer;  //number of samples to FFT over
-const unsigned long frames_per_ring   = 2*fftSize;              //amount of buffer required
-
+const int           beep_seconds      = (1);
+const double        sample_rate       = (44100.0);
+const int           frames_per_buffer = (64);                     //number of samples in a port-audio buffer
+const int           fftSize           = (2*256*frames_per_buffer);  //number of samples to FFT over
+const unsigned long frames_per_ring   = (2*fftSize);              //amount of buffer required
+const unsigned long stepOver          = fftSize;
+const unsigned long referenceMaxDelay = (frames_per_ring + fftSize);
+const unsigned long referenceDelay    = ((2*fftSize)-stepOver);
 
 
 class AudioBuffer
@@ -48,7 +50,9 @@ class AudioBuffer
         
         RingBuffer<float> BufferInput;    //a buffer copying from the input stream.
         RingBuffer<float> BufferOutput; //a buffer writing to the output stream and disk
+        RingBuffer<float> BufferRef; //a buffer writing to the output stream and disk
 
+        float kernelBuf[fftSize+stepOver];  //the reads to the kernel will not be aligned.
 
         unsigned long count = 0;
 

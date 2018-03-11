@@ -12,15 +12,40 @@ using namespace std;
 AudioBuffer::AudioBuffer(unsigned long iSizeHint, fstream *_fout):
     BufferInput(iSizeHint),
     BufferOutput(iSizeHint),
+    BufferRef(referenceMaxDelay),
     underrunFlag{ false },
     freshData{ false },
     fout{ _fout }
 {
+    size_t writeSize;
+    float *writeHead;
 
-    for(unsigned long i=0; i<iSizeHint; i++)
-    {
-        BufferOutput.push(0);    //create a data delay from input to output
-    }
+    writeSize = BufferRef.contigWrite(&writeHead);  //next write position
+    cout << "BufferRef has " << writeSize << " samples free" << endl;
+    memset(writeHead, 0, referenceDelay);
+
+    BufferRef.push(NULL, referenceDelay); //advance the reference ring by some delay
+    cout << "writing " << referenceDelay << " samples to delay" << endl;
+
+    writeSize = BufferOutput.contigWrite(&writeHead);  //next write position
+    cout << "BufferOutput has " << writeSize << " samples free" << endl;
+    freshEntropy(writeHead, fftSize);   //new data written directly to output buffer
+    BufferRef.push(writeHead,fftSize);   //copied into ref buffer
+    BufferOutput.push(NULL, fftSize); //advance the output ring by the amount we wrote
+    cout << "writing " << fftSize << " samples" << endl;
+
+    cout << "popping " << fftSize << " samples to kernelBuf" << endl;
+    memset(kernelBuf, 0, fftSize + stepOver);
+    BufferRef.pop(&kernelBuf[stepOver], fftSize);
+
+    writeSize = BufferOutput.contigWrite(&writeHead);  //next write position
+    cout << "BufferOutput has " << writeSize << " samples free" << endl;
+    freshEntropy(writeHead, fftSize);   //new data written directly to output buffer
+    BufferRef.push(writeHead,fftSize);   //copied into ref buffer
+    BufferOutput.push(NULL, fftSize); //advance the output ring by the amount we wrote
+    cout << "writing " << fftSize << " samples" << endl;
+
+
 }
 
 
@@ -82,21 +107,39 @@ void AudioBuffer::ProcessBuffers()
         //fetch the pointer to the ring buffer read head
         float *readHead = NULL;
         size_t readSize = BufferInput.contigRead(&readHead);
+        //cout << "BufferInput has " << readSize << " samples ready" << endl;
+
+        size_t writeSize = 0;
+        float *writeHead = NULL;
 
         if(readSize >= fftSize){
             
-            fout->write((char*) readHead,  sizeof(float) * fftSize);
+            //delay the samples going from the reference to the kernel
+            //kernelBuf has an addional stepover bytes
+            //this allows the delay to be off by stepOver without losing correlation energy
+            memmove(kernelBuf, &kernelBuf[fftSize], stepOver*sizeof(float));    //copy the back to the front
+            size_t remains = BufferRef.pop(&kernelBuf[stepOver], fftSize);    //copy in the new data
+            cout << "popped ref to kernel, remains = " << remains << endl;
 
-            SpoolBuffers(readHead, fftSize);
+            SpoolBuffers(readHead, kernelBuf, fftSize);
 
-            //copy input to output
-            float *outputref = kernel.ptr<float>(0);
-            if(0 != BufferOutput.push(outputref,fftSize))
+            //we're done with the input data
+            BufferInput.pop(NULL,fftSize);
+
+            //copy fresh bytes to the output
+            writeSize = BufferOutput.contigWrite(&writeHead);
+            if(writeSize >= fftSize)
             {
-                cout << "output ring is full" << endl;
+                freshEntropy(writeHead, fftSize);
+                BufferRef.push(writeHead,fftSize);  //we know the data was written contiguously
+                BufferOutput.push(NULL,fftSize);
+            }
+            else
+            {
+                cout << "output ring has only " << writeSize << " bytes in a row" << endl;
             }
 
-            BufferInput.pop(NULL,fftSize);
+
 
         }
         else
