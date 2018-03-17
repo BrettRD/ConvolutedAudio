@@ -29,7 +29,14 @@ int nDatchannels = 1;	//one channel audio for now
 Mat kernel;		//the reference signal(s)
 Mat sigData;	//the input data
 Mat outData;	//the output delta functions
-Mat image;
+
+int dispHeight = 100;
+int dispWidth = 1024;
+float dispDecay = 0.9;
+float skewRate = 0.1;
+Mat image = Mat(dispHeight, dispWidth, CV_8UC3);
+Mat tfDoppler = Mat(dispHeight, dispWidth, CV_32F);
+
 fstream *fReferenceFile;
 fstream fout;
 fstream fkern;
@@ -89,37 +96,6 @@ void SpoolBuffers(float *inputSig, float* kernelBuf, size_t len){
 //void Convolve(Mat &sigData, Mat &kern, Mat &outData)
 void Convolve()
 {
-    //filter2d runs a correlation which is the same
-    // equation as a FIR if you limit to 1xN images
-    //	this also allows easy exansion of channel or reference count
-	
-	//int ddepth = CV_32F;	//default to source bit depth
-	//Point anchor(0,stepOver);	//default to kernel centre
-	//double delta = 0;		//inject a DC offset
-	//int borderType = BORDER_ISOLATED;	//assume the reference loops
-
-	//outData = Mat(sigData.size(), CV_32F, Scalar(0));	//create a matrix over the array
-	//cout << "incoming sig size = " << sigData.size() << endl;
-	//cout << "kernel size = " << kernel.size() << endl;
-	//cout << "outgoing size = " << outData.size() << endl;
-
-	//filter2D uses a straight-up correlation.
-		//the regular correlation using a white noise kernel leaves the input PSD represented in the output.
-		//any strong single-frequency noise will come through just fine, but with altered phase.
-			//in general, if the PSD is very different to the kernel, we know we can't use phase from any peaks.
-	//filter2D(sigData, outData, ddepth , kernel, anchor, delta, borderType);
-
-	//Solution is to normalize the input to match the kernel,
-		//or even notch-filter strong signals from the input.
-
-	//with a kernel of 2*fftSize, zero-pad it to 4*fftSize
-	//zero-pad the input to the same size
-	//DFT the kernel and image. K, I
-	//normalize the spectrum of the input, (I/|I|)
-	//re-scale the input spectrum to the kernel amplitudes (|K|.*(I./|I|))
-	//multiply the re-scaled input by the complex conjugate of the kernel ((K*) .* I) .* (|K| ./ |I|)
-		//total power of correlation should be constant frame-by-frame, with time concentration indicating confidence
-			//optionally divide through by |I|^2 instead to attenuate channels that are likely swamped with noise.
 
 	Mat sigSpectrum = Mat();
 	Mat kernSpectrum = Mat();
@@ -130,8 +106,6 @@ void Convolve()
 	int nonzeroRows = 1;
 	bool conjkern = true;
 
-   	//cout << "start convolution" << endl;
-	//fflush(stdout);
 	Mat sigDataPadded;
 	Mat kernelPadded;
 	copyMakeBorder(sigData,sigDataPadded,0,0,0,fftSize+(2*stepOver), BORDER_CONSTANT, Scalar(0));
@@ -200,6 +174,30 @@ void displayTF(Mat &tfMat)
 //void displayTF()
 {
 
+	//taking only part of the transfer function
+	tfMat = outData(Rect(765, 0, dispWidth, 1));
+
+	//apply a shear to the doppler accumulator
+    Point2f srcTri[3];
+    srcTri[0] = Point2f(0,  dispHeight/2 );
+    srcTri[1] = Point2f(1,  dispHeight/2 );
+    srcTri[2] = Point2f(0, (dispHeight/2) + 1 );
+
+    Point2f dstTri[3];
+    dstTri[0] = Point2f(0,  dispHeight/2 );
+    dstTri[1] = Point2f(1,  dispHeight/2 );
+    dstTri[2] = Point2f(skewRate, (dispHeight/2) + 1 );
+
+    Mat M = getAffineTransform(srcTri,dstTri);
+    warpAffine(tfDoppler, tfDoppler, M, image.size());
+
+	fflush(stdout);
+
+	for(int i=0; i<dispHeight; i++)
+	{
+		tfDoppler.row(i) =  (dispDecay * tfDoppler.row(i)) + ((1-dispDecay) * tfMat.row(0));
+	}
+    
 	double pulseMax;	//size of the peak
 	double pulseMin;	//size of the inverted peak (likely)
 	Point pulseMaxT;	//sample number of the peak
@@ -207,41 +205,16 @@ void displayTF(Mat &tfMat)
 	Scalar noiseMean(0);	//DC offset, not required
 	Scalar noiseStddev(0);	//measurement of the noise floor (RMS)
 
-	minMaxLoc(tfMat, &pulseMin, &pulseMax, &pulseMinT, &pulseMaxT);
-	cout << "peak at "  << pulseMaxT.x << " height is " << pulseMax << endl;
+	minMaxLoc(tfDoppler, &pulseMin, &pulseMax, &pulseMinT, &pulseMaxT);
+	meanStdDev(tfDoppler, noiseMean, noiseStddev);
+	//cout << "peak at "  << pulseMaxT.x << " height is " << pulseMax << endl;
 
-	meanStdDev(tfMat, noiseMean, noiseStddev);
-	//cout << "noise floor = " << noiseStddev[0] << endl;
+	double scaleDivisor = 2 * max(pulseMax, -pulseMin);
 
-	int height = 512;
-	int width = 1024;
-
-	image = Mat(height, width, CV_8U);
-
-	int offset = pulseMaxT.x-(width/2);
-	if(offset+width > tfMat.size().width)
-	{
-		offset = tfMat.size().width - width;
-	}
-	else if (offset < 0)
-	{
-		offset = 0;
-	}
-
-	for(int i=0; i<width; i++)
-	{
-		int j;
-		for(j=0; j<height; j++)
-		{
-			image.at<uint8_t>(j,i) = 0;
-		}
-
-		j = (height/2) + ((height/2) * (tfMat.at<float>(0,i+offset) / (pulseMax-pulseMin)));
-		//cout << "marker " << i << ", " << j << endl;
-		if(j < 0) j = 0;
-		if(j >= height) j = height - 1;
-		image.at<uint8_t>(j,i) = 255;
-	}
+	Mat tfdopNorm;
+    tfDoppler.convertTo(tfdopNorm,CV_8UC1,255.0/scaleDivisor, 127);
+    
+    applyColorMap(tfdopNorm, image, COLORMAP_JET);
 
     namedWindow( "Display window", WINDOW_AUTOSIZE );// Create a window for display.
     imshow( "Display window", image );                   // Show our image inside it.
