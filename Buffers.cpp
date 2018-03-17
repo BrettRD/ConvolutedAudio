@@ -97,17 +97,12 @@ int AudioBuffer::PAcallback(const void* pInputBuffer,
 
 void AudioBuffer::ProcessBuffers()
 {
-    static int ellipsisCount = 0;    //dodgy print thing
-    
-    //cout << "AudioBuffer::ProcessBuffers, wait" << endl;
-    //unique_lock<mutex> lk(callbackMutex);    //lock the mutex
 
     if(BufferInput.size() >= fftSize){    //number of elements in a callback buffer
 
         //fetch the pointer to the ring buffer read head
         float *readHead = NULL;
         size_t readSize = BufferInput.contigRead(&readHead);
-        //cout << "BufferInput has " << readSize << " samples ready" << endl;
 
         size_t writeSize = 0;
         float *writeHead = NULL;
@@ -118,8 +113,7 @@ void AudioBuffer::ProcessBuffers()
             //kernelBuf has an addional stepover bytes
             //this allows the delay to be off by stepOver without losing correlation energy
             memmove(kernelBuf, &kernelBuf[fftSize], stepOver*sizeof(float));    //copy the back to the front
-            size_t remains = BufferRef.pop(&kernelBuf[stepOver], fftSize);    //copy in the new data
-            cout << "popped ref to kernel, remains = " << remains << endl;
+            BufferRef.pop(&kernelBuf[stepOver], fftSize);    //copy in the new data
 
             SpoolBuffers(readHead, kernelBuf, fftSize);
 
@@ -145,28 +139,20 @@ void AudioBuffer::ProcessBuffers()
         else
         {
             cout << "Misaligned!" << endl;
-
         }
-
-        
     }
-    //growing ellipsis during recording
-    if(++ellipsisCount >= 69){    //10Hz
-        //cout << "AudioBuffer::ProcessBuffers, write size:  " << writeCount << endl;
 
-        if (underrunFlag)
-        {
-            cout << "AudioBuffer::ProcessBuffers, output buffer was not filled: " << endl;
-            underrunFlag = false;
-        }
-        if (overrunFlag)
-        {
-            cout << "AudioBuffer::ProcessBuffers, input buffer was not emptied: " << endl;
-            overrunFlag = false;
-        }
-        ellipsisCount = 0;
-        cout << ".";
-        fflush(stdout);
+
+    if (underrunFlag)
+    {
+        cout << "AudioBuffer::ProcessBuffers, output buffer was not filled: " << endl;
+        underrunFlag = false;
     }
+    if (overrunFlag)
+    {
+        cout << "AudioBuffer::ProcessBuffers, input buffer was not emptied: " << endl;
+        overrunFlag = false;
+    }
+
 }
 

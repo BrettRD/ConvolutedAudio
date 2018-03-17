@@ -24,7 +24,7 @@ using namespace std;
 void audioProcessThread(portaudio::System *sys, AudioBuffer *myBuffer, bool *spin){
     while(*spin){
         myBuffer->ProcessBuffers();
-        sys->sleep(1);    //Replace with semaphore wait
+        sys->sleep(20);    //Replace with semaphore wait
     }
 }
 
