@@ -5,13 +5,13 @@ CPPFLAGS = -Wall -pedantic $(inc)
 LDFLAGS = $(lib)
 
 
-all: recordLoopback
+all: convolutedAudio
 
-recordLoopback: Buffers.o recordLoopback.o RingBuffer.o convolver.o Buffers.h
-	g++ -g $(LDFLAGS)  convolver.o RingBuffer.o recordLoopback.o Buffers.o -o recordLoopback  -std=gnu++11
+convolutedAudio: Buffers.o convolutedAudio.o RingBuffer.o convolver.o Buffers.h
+	g++ -g $(LDFLAGS)  convolver.o RingBuffer.o convolutedAudio.o Buffers.o -o convolutedAudio  -std=gnu++11
 
-recordLoopback.o: recordLoopback.cpp Buffers.h
-	g++ -g $(CPPFLAGS) -c recordLoopback.cpp -std=gnu++11
+convolutedAudio.o: convolutedAudio.cpp Buffers.h
+	g++ -g $(CPPFLAGS) -c convolutedAudio.cpp -std=gnu++11
 
 Buffers.o: Buffers.cpp Buffers.h
 	g++ -g $(CPPFLAGS) -c Buffers.cpp -std=gnu++11

@@ -29,6 +29,8 @@ int nDatchannels = 1;	//one channel audio for now
 Mat kernel;		//the reference signal(s)
 Mat sigData;	//the input data
 Mat outData;	//the output delta functions
+Mat calibrationSpectrum;
+Mat calibrationResponse = Mat(1, 2*(fftSize + stepOver), CV_32F);
 
 int dispHeight = 100;
 int dispWidth = 1024;
@@ -50,20 +52,45 @@ void PrepKernel(fstream *fReference)
 	fReferenceFile->seekg (0, ios::end);       //seek to the end of the file to tell the size
 
     size_t refsize = fReferenceFile->tellg();  //the pointer to the current byte == the length
-    cout << "The sample file is " << refsize << " bytes long" << endl;    
+    cout << "The sample file is " << refsize << " bytes long" << endl;  
+    fflush(stdout);
+  
     fReferenceFile->seekg (0, ios::beg);       //return to the beginning of the file
     fout.open( "results.raw", ios::out|ios::binary);
     finput.open( "input.raw", ios::out|ios::binary);
 	fkern.open( "kern.raw", ios::out|ios::binary);
-    //also prep the display while we're at it
+
+	//fetch the impulse response for the speaker microphone combination.
+    fstream fcalib;
+    fcalib.open( "response.raw", ios::in|ios::binary);
+    fReferenceFile->read ( (char*) calibrationResponse.ptr(0) , fftSize * sizeof(float));   
+    //if the file is shorter, don't care.
+	fcalib.close();
+	//calculate the spectrum for the calibration
+	int nonzeroRows = 1;
+	int flags = DFT_ROWS | DFT_COMPLEX_OUTPUT;
+	dft (calibrationResponse, calibrationSpectrum, flags, nonzeroRows);
+
+	//conjugate divided by magnitude squared seems to be the best OpenCV has to offer
+	Mat planes[2];
+	split(calibrationSpectrum, planes);                   // planes[0] = Re, planes[1] = Im
+	Mat specMag;
+	magnitude(planes[0], planes[1], specMag);
+	planes[0] =  planes[0] / specMag^2;
+	planes[1] = -planes[1] / specMag^2;
+	merge(planes, 2, calibrationSpectrum);
 }
 
 
 
 void freshEntropy(float *refBuffer, size_t len)
 {
-    int16_t sample = 0;	//import sample-by-sample
 
+    Mat noise = Mat(1, len, CV_32F, refBuffer);
+	randn(noise, 0, 0.3);
+
+    //int16_t sample = 0;	//import sample-by-sample
+	/*
 	for(size_t i=0; i<len; i++)
 	{
     	fReferenceFile->read ( (char*) &sample, sizeof(int16_t));   //read the whole file
@@ -77,13 +104,12 @@ void freshEntropy(float *refBuffer, size_t len)
     	float sampleFloat = sample;
     	refBuffer[i] = sampleFloat / (float) INT16_MAX;
 	}
+	*/
 
 }
 
 //compare the vector to the kernel and report some stats
 void SpoolBuffers(float *inputSig, float* kernelBuf, size_t len){
-
-    fflush(stdout);
 
 	sigData = Mat(1, len, CV_32F, inputSig);	//create a matrix over the array
 	kernel = Mat(1, len + stepOver, CV_32F, kernelBuf);
@@ -142,6 +168,9 @@ void Convolve()
 	flags = DFT_ROWS;
 	conjkern = true;
 	mulSpectrums(sigSpectrum, kernSpectrum, outSpectrum, flags, conjkern);
+	//apply the speaker correction
+	conjkern = false;
+	mulSpectrums(outSpectrum, calibrationSpectrum, outSpectrum, flags, conjkern);
 
 	//calculate the inverse dft for the output
 	flags = DFT_INVERSE | DFT_ROWS | DFT_COMPLEX_OUTPUT;
