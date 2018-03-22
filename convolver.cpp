@@ -62,8 +62,8 @@ void PrepKernel(fstream *fReference)
 
 	//fetch the impulse response for the speaker microphone combination.
     fstream fcalib;
-    fcalib.open( "response.raw", ios::in|ios::binary);
-    fReferenceFile->read ( (char*) calibrationResponse.ptr(0) , fftSize * sizeof(float));   
+    fcalib.open( "deconv.raw", ios::in|ios::binary);
+    fcalib.read ( (char*) calibrationResponse.ptr(0) , fftSize * sizeof(float));   
     //if the file is shorter, don't care.
 	fcalib.close();
 	//calculate the spectrum for the calibration
@@ -71,14 +71,19 @@ void PrepKernel(fstream *fReference)
 	int flags = DFT_ROWS | DFT_COMPLEX_OUTPUT;
 	dft (calibrationResponse, calibrationSpectrum, flags, nonzeroRows);
 
+
 	//conjugate divided by magnitude squared seems to be the best OpenCV has to offer
-	Mat planes[2];
-	split(calibrationSpectrum, planes);                   // planes[0] = Re, planes[1] = Im
-	Mat specMag;
-	magnitude(planes[0], planes[1], specMag);
-	planes[0] =  planes[0] / specMag^2;
-	planes[1] = -planes[1] / specMag^2;
-	merge(planes, 2, calibrationSpectrum);
+	//Mat planes[2];
+	//split(calibrationSpectrum, planes);                   // planes[0] = Re, planes[1] = Im
+	//Mat specMag;
+	//magnitude(planes[0], planes[1], specMag);
+	//planes[0] =  planes[0] / specMag;
+	//planes[1] = -planes[1];
+	//planes[0] = (planes[0]).mul(1/specMag);
+	//planes[1] = (-planes[1]).mul(1/specMag);
+	//planes[0] = ( planes[0]).mul(1/specMag.mul(specMag));
+	//planes[1] = (-planes[1]).mul(1/specMag.mul(specMag));
+	//merge(planes, 2, calibrationSpectrum);
 }
 
 
@@ -169,7 +174,7 @@ void Convolve()
 	conjkern = true;
 	mulSpectrums(sigSpectrum, kernSpectrum, outSpectrum, flags, conjkern);
 	//apply the speaker correction
-	conjkern = false;
+	conjkern = true;
 	mulSpectrums(outSpectrum, calibrationSpectrum, outSpectrum, flags, conjkern);
 
 	//calculate the inverse dft for the output
@@ -204,7 +209,7 @@ void displayTF(Mat &tfMat)
 {
 
 	//taking only part of the transfer function
-	tfMat = outData(Rect(765, 0, dispWidth, 1));
+	tfMat = outData(Rect(750, 0, dispWidth, 1));
 
 	//apply a shear to the doppler accumulator
     Point2f srcTri[3];
